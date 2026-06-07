@@ -8,3 +8,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+const isViteDevServer = Boolean((import.meta as ImportMeta & { hot?: unknown }).hot);
+if ('serviceWorker' in navigator && !isViteDevServer) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}

@@ -1,0 +1,36 @@
+{
+  "name": "TerKix Terminal OS",
+  "short_name": "TerKix",
+  "description": "A Termux-inspired AI-native terminal workspace for building, previewing, and deploying software with agent workflows.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030508",
+  "theme_color": "#030508",
+  "categories": ["developer", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/terkix-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Terminal",
+      "short_name": "Terminal",
+      "description": "Open the TerKix command shell.",
+      "url": "/?section=terminal",
+      "icons": [{ "src": "/terkix-logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Workspace Files",
+      "short_name": "Files",
+      "description": "Open the TerKix workspace files view.",
+      "url": "/?section=files",
+      "icons": [{ "src": "/terkix-logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
