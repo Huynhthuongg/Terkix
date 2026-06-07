@@ -91,7 +91,7 @@ function parseGeminiJson(text: string): unknown {
 app.post("/api/gemini/command", async (req, res) => {
   try {
     const { command, currentFiles, projectContext, activeBranch, thinkingMode } = req.body as GeminiCommandRequest;
-    const cleanCommand = command?.trim();
+    const cleanCommand = typeof command === "string" ? command.trim() : "";
 
     if (!cleanCommand) {
       return res.status(400).json({ error: "Command is required" });
