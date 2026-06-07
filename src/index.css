@@ -135,7 +135,13 @@
   }
 
   .terkix-app-shell {
-    font-size: 10px;
+    width: 104.167vw;
+    height: calc(var(--terkix-viewport-height, 100dvh) * 1.04167);
+    min-height: calc(var(--terkix-viewport-height, 100dvh) * 1.04167);
+    max-height: none;
+    font-size: 9.5px;
+    transform: scale(0.96);
+    transform-origin: top left;
   }
 
   .terkix-command-deck {
