@@ -32,7 +32,8 @@ interface GeminiCommandRequest {
 }
 
 const app = express();
-const PORT = Number.parseInt(process.env.PORT || "3000", 10);
+const parsedPort = Number.parseInt(process.env.PORT ?? "", 10);
+const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 3000;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 app.use(express.json({ limit: "50mb" }));
