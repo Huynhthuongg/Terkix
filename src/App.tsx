@@ -46,6 +46,7 @@ import {
   MicOff
 } from "lucide-react";
 import { Project, WorkspaceFile, Agent, TerminalLine, Deployment, GitCommit } from "./types";
+import { readJsonStorage, readNumberStorage, readStringStorage, writeStorage } from "./utils/storage";
 import { PRESET_PROJECTS } from "./data/presets";
 import DashboardOverview from "./components/DashboardOverview";
 import ProjectList from "./components/ProjectList";
@@ -76,30 +77,29 @@ export default function App() {
   const rkixRootRef = useRef<HTMLDivElement>(null);
 
   // Persistence state loaders
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem("rkix_projects");
-    return saved ? JSON.parse(saved) : PRESET_PROJECTS;
-  });
+  const [projects, setProjects] = useState<Project[]>(() =>
+    readJsonStorage<Project[]>("rkix_projects", PRESET_PROJECTS, (value): value is Project[] =>
+      Array.isArray(value) && value.every((item) => typeof item?.id === "string" && Array.isArray(item?.files))
+    )
+  );
 
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    const saved = localStorage.getItem("rkix_active_project_id");
-    if (saved) return saved;
-    return PRESET_PROJECTS[0]?.id || "";
-  });
+  const [activeProjectId, setActiveProjectId] = useState<string>(() =>
+    readStringStorage("rkix_active_project_id", PRESET_PROJECTS[0]?.id || "")
+  );
 
   const [currentSection, setCurrentSection] = useState<string>("terminal");
-  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() => {
-    const saved = localStorage.getItem("rkix_terminal_lines");
-    return saved ? JSON.parse(saved) : INITIAL_LINES;
-  });
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() =>
+    readJsonStorage<TerminalLine[]>("rkix_terminal_lines", INITIAL_LINES, (value): value is TerminalLine[] =>
+      Array.isArray(value) && value.every((item) => typeof item?.id === "string" && typeof item?.text === "string")
+    )
+  );
 
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [commandText, setCommandText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [totalCommandsRun, setTotalCommandsRun] = useState<number>(() => {
-    const saved = localStorage.getItem("rkix_total_commands");
-    return saved ? parseInt(saved, 10) : 0;
-  });
+  const [totalCommandsRun, setTotalCommandsRun] = useState<number>(() =>
+    readNumberStorage("rkix_total_commands", 0)
+  );
 
   // File explorer states
   const [selectedFilePath, setSelectedFilePath] = useState<string>("");
@@ -120,7 +120,7 @@ export default function App() {
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [longPressedTriggered, setLongPressedTriggered] = useState<boolean>(false);
 
   const startLongPressTimer = () => {
@@ -400,25 +400,39 @@ export default function App() {
     }, 1200);
   };
 
-  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
+  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || PRESET_PROJECTS[0];
 
   useEffect(() => {
-    localStorage.setItem("rkix_projects", JSON.stringify(projects));
+    if (projects.length === 0) {
+      setProjects(PRESET_PROJECTS);
+      setActiveProjectId(PRESET_PROJECTS[0]?.id || "");
+      return;
+    }
+
+    if (!projects.some((project) => project.id === activeProjectId)) {
+      setActiveProjectId(projects[0].id);
+    }
+  }, [activeProjectId, projects]);
+
+  useEffect(() => {
+    writeStorage("rkix_projects", projects);
   }, [projects]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_active_project_id", activeProjectId);
+    writeStorage("rkix_active_project_id", activeProjectId);
     if (activeProject && activeProject.files.length > 0) {
-      setSelectedFilePath(activeProject.files[0].path);
+      setSelectedFilePath((current) =>
+        activeProject.files.some((file) => file.path === current) ? current : activeProject.files[0].path
+      );
     }
   }, [activeProjectId, activeProject]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_terminal_lines", JSON.stringify(terminalLines));
+    writeStorage("rkix_terminal_lines", terminalLines);
   }, [terminalLines]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_total_commands", totalCommandsRun.toString());
+    writeStorage("rkix_total_commands", totalCommandsRun.toString());
   }, [totalCommandsRun]);
 
   // Update Real-time Telemetry Metrics periodically to drive live D3 visualizations
