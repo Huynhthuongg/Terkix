@@ -141,6 +141,14 @@ export default function App() {
 
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [commandText, setCommandText] = useState<string>("");
+  const [commandHistory, setCommandHistory] = useState<string[]>(() =>
+    readJsonStorage<string[]>("terkix_command_history", [], (value): value is string[] =>
+      Array.isArray(value) && value.every((item) => typeof item === "string"),
+      ["rkix_command_history"]
+    )
+  );
+  const [historyCursor, setHistoryCursor] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [totalCommandsRun, setTotalCommandsRun] = useState<number>(() =>
     readNumberStorage("terkix_total_commands", 0, ["rkix_total_commands"])
@@ -523,6 +531,20 @@ export default function App() {
     writeStorage("terkix_total_commands", totalCommandsRun.toString());
   }, [totalCommandsRun]);
 
+  useEffect(() => {
+    writeStorage("terkix_command_history", commandHistory.slice(0, 30));
+  }, [commandHistory]);
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", syncOnlineState);
+    window.addEventListener("offline", syncOnlineState);
+    return () => {
+      window.removeEventListener("online", syncOnlineState);
+      window.removeEventListener("offline", syncOnlineState);
+    };
+  }, []);
+
   // Update Real-time Telemetry Metrics periodically to drive live D3 visualizations
   useEffect(() => {
     const interval = setInterval(() => {
@@ -578,6 +600,27 @@ export default function App() {
     }
   }, [chatMessages, currentSection]);
 
+  const recallCommandHistory = (direction: "previous" | "next") => {
+    if (commandHistory.length === 0) return;
+
+    if (direction === "previous") {
+      const nextCursor = historyCursor === null ? 0 : Math.min(historyCursor + 1, commandHistory.length - 1);
+      setHistoryCursor(nextCursor);
+      setCommandText(commandHistory[nextCursor]);
+      return;
+    }
+
+    if (historyCursor === null) return;
+    const nextCursor = historyCursor - 1;
+    if (nextCursor < 0) {
+      setHistoryCursor(null);
+      setCommandText("");
+    } else {
+      setHistoryCursor(nextCursor);
+      setCommandText(commandHistory[nextCursor]);
+    }
+  };
+
   // Handle Termux custom interactive key modifiers
   const handleTermKeyAction = (action: string) => {
     if (action === "ESC") {
@@ -627,6 +670,10 @@ export default function App() {
       else if (consoleFontSize === "base") setConsoleFontSize("lg");
     } else if (action === "CLEAR") {
       setTerminalLines([]);
+    } else if (action === "↑") {
+      recallCommandHistory("previous");
+    } else if (action === "↓") {
+      recallCommandHistory("next");
     } else if (action === "PGUP") {
       if (terminalEndRef.current) {
         terminalEndRef.current.parentNode?.dispatchEvent(new CustomEvent('scroll-up'));
@@ -657,6 +704,8 @@ export default function App() {
     if (!cleanCmd) return;
 
     setCommandText("");
+    setHistoryCursor(null);
+    setCommandHistory(prev => [cleanCmd, ...prev.filter((entry) => entry !== cleanCmd)].slice(0, 30));
     
     // Add prompt user input visual line to terminal console
     const inputTimestamp = new Date().toLocaleTimeString();
@@ -2686,8 +2735,12 @@ export default function App() {
 
             {/* Right: Telemetry sync and utility controls */}
             <div className="flex items-center gap-2.5 font-mono text-[10px]">
-              <span className="hidden sm:inline px-1 py-0.5 rounded bg-[#238636]/10 text-[#3FB950] border border-[#238636]/20 font-bold text-[9px] uppercase">
-                Synced
+              <span className={`hidden sm:inline px-1 py-0.5 rounded border font-bold text-[9px] uppercase ${
+                isOnline
+                  ? "bg-[#238636]/10 text-[#3FB950] border-[#238636]/20"
+                  : "bg-[#D29922]/10 text-[#D29922] border-[#D29922]/20"
+              }`}>
+                {isOnline ? "Online" : "Offline"}
               </span>
               <span className="text-gray-500">
                 UTC: {new Date().toISOString().substring(11, 19)}
@@ -2726,7 +2779,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-5">
                     <div className="rounded-2xl border border-[#3FB950]/20 bg-[#3FB950]/8 p-3">
                       <div className="text-[#8B949E]">CPU</div>
                       <div className="mt-1 text-lg font-black text-[#3FB950]">{latestTelemetry.cpu.toFixed(2)}%</div>
@@ -2749,6 +2802,10 @@ export default function App() {
                         {pwaInstallState === "installed" ? "ON" : pwaInstallState === "available" ? "GET" : "PWA"}
                       </div>
                     </button>
+                    <div className="rounded-2xl border border-[#30363D] bg-[#0D1117]/80 p-3">
+                      <div className="text-[#8B949E]">HISTORY</div>
+                      <div className="mt-1 text-lg font-black text-[#C9D1D9]">{commandHistory.length}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -2781,6 +2838,22 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+
+                {commandHistory.length > 0 && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1 text-[10px]">
+                    <span className="shrink-0 py-1.5 text-[#8B949E]">History:</span>
+                    {commandHistory.slice(0, 5).map((command) => (
+                      <button
+                        key={command}
+                        type="button"
+                        onClick={() => setCommandText(command)}
+                        className="max-w-[260px] shrink-0 truncate rounded-full border border-[#30363D] bg-black/45 px-3 py-1.5 text-left font-mono text-[#8B949E] transition hover:border-[#58A6FF]/60 hover:text-[#58A6FF]"
+                      >
+                        $ {command}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </section>
               
               {/* Actual Terminal Window */}
@@ -2918,7 +2991,7 @@ export default function App() {
                   {/* Authentic Termux Virtual Keyboard bar accessory panel */}
                 <div className="flex items-center justify-between border-t border-[#13171e] bg-[#070a0e] px-3 py-1.5 gap-1.5 select-none overflow-x-auto shrink-0" id="termux-virtual-keyboard">
                   <div className="flex gap-1">
-                    {["ESC", "TAB", "CTRL", "ALT", "-", "+", "CLEAR"].map(k => (
+                    {["ESC", "TAB", "CTRL", "ALT", "↑", "↓", "-", "+", "CLEAR"].map(k => (
                       <button
                         key={k}
                         type="button"
@@ -2952,7 +3025,19 @@ export default function App() {
                   <input
                     type="text"
                     value={commandText}
-                    onChange={(e) => setCommandText(e.target.value)}
+                    onChange={(e) => {
+                      setCommandText(e.target.value);
+                      setHistoryCursor(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        recallCommandHistory("previous");
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        recallCommandHistory("next");
+                      }
+                    }}
                     disabled={isProcessing}
                     placeholder="Nhập lệnh TerKix hoặc mô tả app muốn tạo/tối ưu..."
                     className="bg-transparent border-none outline-none flex-1 font-mono text-[11.5px] md:text-[12px] font-bold text-white placeholder-gray-600 focus:ring-0 select-text leading-relaxed tracking-wide"

@@ -7,6 +7,7 @@ TerKix Terminal OS is a Termux-inspired, AI-native development workspace built w
 - **React 19 SPA** for the TerKix terminal, workspace explorer, dashboard, plugin hub, contacts manager, and telemetry views.
 - **TerKix logo asset** at `public/terkix-logo.svg` for the favicon, nav rail, cockpit header, and dashboard hero.
 - **Installable PWA shell** via `public/manifest.webmanifest` and `public/sw.js` for app-like launch and offline shell caching.
+- **Terminal productivity upgrades** including persisted command history, arrow-key recall, online/offline status, and cache-safe service worker routing.
 - **Express + Vite server** for local development and production static hosting.
 - **Gemini command API** at `/api/gemini/command` for multi-agent workflow generation with an offline simulator fallback in the UI.
 - **Safe local persistence** for projects, terminal history, active workspace, and command metrics.
