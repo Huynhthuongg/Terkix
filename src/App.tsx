@@ -71,7 +71,7 @@ interface TerKixUiPreferences {
 }
 
 const DEFAULT_UI_PREFERENCES: TerKixUiPreferences = {
-  consoleFontSize: "base",
+  consoleFontSize: "sm",
   themeColor: "green",
   crtFilter: false,
   showLegacySidebar: false,
@@ -1510,8 +1510,8 @@ export default function App() {
     <div 
       id="terkix-root" 
       ref={terkixRootRef}
-      className="terkix-grid-bg w-all-screen w-screen h-screen overflow-hidden max-h-screen relative flex bg-[#030508] text-[#E6EDF3] font-mono select-none"
-      style={{ touchAction: "none" }}
+      className="terkix-app-shell terkix-grid-bg w-all-screen w-screen h-screen overflow-hidden max-h-screen relative flex bg-[#030508] text-[#E6EDF3] font-mono select-none"
+      style={{ touchAction: "manipulation" }}
     >
       {/* Absolute CRT monitor phosphor raster grid overlay */}
       {crtFilter && (
@@ -1527,39 +1527,39 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="fixed inset-0 z-40 bg-[#06080c]/98 backdrop-blur-md flex flex-col p-4 md:p-8 overflow-y-auto selection:bg-[#3FB950]/30 select-text font-sans scroll-smooth"
+            className="terkix-dashboard-overlay fixed inset-0 z-40 bg-[#06080c]/98 backdrop-blur-md flex flex-col p-2.5 sm:p-4 md:p-6 overflow-y-auto selection:bg-[#3FB950]/30 select-text font-sans scroll-smooth"
           >
             {/* Overlay Header Banner */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#30363D] pb-5 mb-6 gap-4 shrink-0">
-              <div className="flex items-center gap-4">
-                <img src="/terkix-logo.svg" alt="TerKix logo" className="h-14 w-14 rounded-2xl border border-[#30363D] bg-black/50 shadow-[0_0_30px_rgba(88,166,255,0.18)]" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#30363D] pb-2.5 md:pb-5 mb-2.5 md:mb-6 gap-2.5 md:gap-4 shrink-0">
+              <div className="flex items-center gap-2.5 md:gap-4">
+                <img src="/terkix-logo.svg" alt="TerKix logo" className="h-10 w-10 md:h-14 md:w-14 rounded-xl md:rounded-2xl border border-[#30363D] bg-black/50 shadow-[0_0_30px_rgba(88,166,255,0.18)]" />
                 <div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="h-2 w-2 rounded-full bg-[#3FB950] animate-pulse"></span>
-                    <p className="text-[9px] tracking-widest font-mono uppercase bg-[#3FB950]/10 text-[#3FB950] px-2.5 py-0.5 rounded font-extrabold border border-[#3FB950]/20">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
+                    <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-[#3FB950] animate-pulse"></span>
+                    <p className="text-[8px] md:text-[9px] tracking-widest font-mono uppercase bg-[#3FB950]/10 text-[#3FB950] px-2 md:px-2.5 py-0.5 rounded font-extrabold border border-[#3FB950]/20">
                       TerKix Termux Sandbox Core
                     </p>
-                    <span className="text-[9px] tracking-widest font-mono uppercase bg-[#58A6FF]/10 text-[#58A6FF] px-2.5 py-0.5 rounded font-extrabold border border-[#58A6FF]/20">
+                    <span className="hidden sm:inline-flex text-[9px] tracking-widest font-mono uppercase bg-[#58A6FF]/10 text-[#58A6FF] px-2.5 py-0.5 rounded font-extrabold border border-[#58A6FF]/20">
                       Prompt → Build → Preview → Deploy
                     </span>
                   </div>
-                  <h1 className="text-xl md:text-2xl font-black text-white mt-1.5 flex items-center gap-2">
+                  <h1 className="text-base md:text-2xl font-black text-white mt-1 md:mt-1.5 flex items-center gap-2">
                     <Sliders className="text-[#3FB950]" size={21} /> TERKIX APP COCKPIT
                   </h1>
-                  <p className="text-xs text-[#8B949E] mt-0.5 font-medium font-sans">
+                  <p className="hidden sm:block text-[10px] md:text-xs text-[#8B949E] mt-0.5 font-medium font-sans">
                     Termux-style shell UI &bull; Active Sandbox Layer Matrix &bull; Realtime Sync Verified
                   </p>
                 </div>
               </div>
 
               {/* Close Action - Highly visible Quay lại/X action */}
-              <div className="flex items-center gap-3 w-full md:w-auto self-stretch md:self-auto justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto self-stretch sm:self-auto justify-end">
                 <button
                   onClick={() => setIsNavOpen(false)}
-                  className="bg-red-950/80 hover:bg-red-600 border border-red-500 text-red-200 hover:text-white px-4.5 py-2.5 rounded-lg text-xs font-black tracking-wider leading-normal cursor-pointer transition-all duration-150 flex items-center gap-1.5 shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.25)] uppercase"
+                  className="bg-red-950/80 hover:bg-red-600 border border-red-500 text-red-200 hover:text-white px-3 md:px-4.5 py-2 md:py-2.5 rounded-lg text-[10px] md:text-xs font-black tracking-wider leading-normal cursor-pointer transition-all duration-150 flex items-center gap-1.5 shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.25)] uppercase"
                   title="Nhấn để đóng giao diện menu và quay trở lại màn hình chính CLI."
                 >
-                  <X size={14} className="text-red-400 group-hover:text-white" /> ĐÓNG MENU & QUAY LẠI ✕
+                  <X size={14} className="text-red-400 group-hover:text-white" /> <span className="sm:hidden">ĐÓNG</span><span className="hidden sm:inline">ĐÓNG MENU & QUAY LẠI ✕</span>
                 </button>
               </div>
             </div>
@@ -1973,20 +1973,20 @@ export default function App() {
             </div>
           ) : (
               /* Selected Sub-page View inside the Overlay */
-              <div className="flex-1 flex flex-col min-h-0 gap-4" id="overlay-module-viewport">
+              <div className="flex-1 flex flex-col min-h-0 gap-2.5 md:gap-4" id="overlay-module-viewport">
                 
                 {/* Visual Header / Navigation Breadcrumbs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#111622] p-3 rounded-xl border border-[#30363D]/80 font-mono shrink-0 gap-3">
-                  <div className="flex items-center gap-3 flex-wrap text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#111622] p-2 md:p-3 rounded-xl border border-[#30363D]/80 font-mono shrink-0 gap-2 md:gap-3">
+                  <div className="flex items-center gap-2 md:gap-3 flex-wrap text-[10px] md:text-xs">
                     <button 
                       onClick={() => setCurrentSection("terminal")} 
-                      className="px-4.5 py-2 text-[11.5px] font-black text-white hover:text-black bg-[#58A6FF]/15 hover:bg-[#58A6FF] border border-[#58A6FF]/40 rounded-lg cursor-pointer transition-all duration-150 flex items-center gap-1.5 leading-none select-none shadow-[0_0_12px_rgba(88,166,255,0.15)]"
+                      className="px-3 md:px-4.5 py-1.5 md:py-2 text-[10px] md:text-[11.5px] font-black text-white hover:text-black bg-[#58A6FF]/15 hover:bg-[#58A6FF] border border-[#58A6FF]/40 rounded-lg cursor-pointer transition-all duration-150 flex items-center gap-1.5 leading-none select-none shadow-[0_0_12px_rgba(88,166,255,0.15)]"
                     >
-                      <span>&larr; QUAY LẠI TRANG CHỦ MENU</span>
+                      <span className="sm:hidden">&larr; MENU</span><span className="hidden sm:inline">&larr; QUAY LẠI TRANG CHỦ MENU</span>
                     </button>
-                    <span className="text-gray-600 font-sans">/</span>
-                    <span className="text-[11.5px] text-gray-400 font-bold uppercase tracking-wider">
-                      Mục hiện tại: <span className="text-[#3FB950] font-extrabold font-mono text-[12px]">{currentSection}</span>
+                    <span className="hidden sm:inline text-gray-600 font-sans">/</span>
+                    <span className="text-[10px] md:text-[11.5px] text-gray-400 font-bold uppercase tracking-wider">
+                      Mục hiện tại: <span className="text-[#3FB950] font-extrabold font-mono text-[10.5px] md:text-[12px]">{currentSection}</span>
                     </span>
                   </div>
 
@@ -1995,9 +1995,9 @@ export default function App() {
                       setCurrentSection("terminal");
                       setIsNavOpen(false);
                     }}
-                    className="px-4 py-2 text-[11.5px] uppercase font-black text-white hover:text-white bg-red-900/40 hover:bg-red-650 border border-red-500/40 rounded-lg cursor-pointer transition-all duration-150 select-none self-stretch sm:self-auto flex items-center gap-1.5 justify-center shadow-md shadow-red-950/50"
+                    className="px-3 md:px-4 py-1.5 md:py-2 text-[10px] md:text-[11.5px] uppercase font-black text-white hover:text-white bg-red-900/40 hover:bg-red-650 border border-red-500/40 rounded-lg cursor-pointer transition-all duration-150 select-none self-stretch sm:self-auto flex items-center gap-1.5 justify-center shadow-md shadow-red-950/50"
                   >
-                    <X size={12} /> ĐÓNG MENU (QUAY LẠI TERMINAL)
+                    <X size={12} /> <span className="sm:hidden">ĐÓNG</span><span className="hidden sm:inline">ĐÓNG MENU (QUAY LẠI TERMINAL)</span>
                   </button>
                 </div>
 
@@ -2835,21 +2835,21 @@ export default function App() {
           
           {/* TERMINAL TAB VIEW - ALWAYS ACTIVE BACKGROUND TERMUX */}
           <div className="flex-1 flex flex-col min-h-0" id="terminal-section-layout">
-              <section className="terkix-command-deck border-b border-[#21262d] bg-[#05070b]/95 px-3 py-3 font-mono shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-                <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
-                  <div className="rounded-2xl border border-[#30363D] bg-[linear-gradient(135deg,rgba(13,17,23,0.96),rgba(3,5,8,0.94))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                    <div className="flex items-start gap-3">
-                      <img src="/terkix-logo.svg" alt="TerKix command deck" className="h-12 w-12 rounded-xl border border-[#30363D] bg-black/60 shadow-[0_0_24px_rgba(63,185,80,0.18)]" />
+              <section className="terkix-command-deck border-b border-[#21262d] bg-[#05070b]/95 px-2 py-2 sm:px-3 sm:py-3 font-mono shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+                <div className="mb-2 sm:mb-3 grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-[1.4fr_1fr]">
+                  <div className="rounded-xl sm:rounded-2xl border border-[#30363D] bg-[linear-gradient(135deg,rgba(13,17,23,0.96),rgba(3,5,8,0.94))] p-2.5 sm:p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div className="flex items-start gap-2.5 sm:gap-3">
+                      <img src="/terkix-logo.svg" alt="TerKix command deck" className="h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl border border-[#30363D] bg-black/60 shadow-[0_0_24px_rgba(63,185,80,0.18)]" />
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.18em]">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[8px] sm:text-[9px] uppercase tracking-[0.14em] sm:tracking-[0.18em]">
                           <span className="rounded-full border border-[#3FB950]/25 bg-[#3FB950]/10 px-2 py-0.5 font-black text-[#3FB950]">TerKix Flow</span>
                           <span className="rounded-full border border-[#58A6FF]/25 bg-[#58A6FF]/10 px-2 py-0.5 font-bold text-[#58A6FF]">Mobile Termux UX</span>
                         </div>
-                        <h2 className="mt-2 truncate text-base font-black tracking-tight text-white md:text-lg">Command Center cho ứng dụng Termux riêng của bạn</h2>
-                        <p className="mt-1 text-[11px] leading-relaxed text-[#8B949E]">
+                        <h2 className="mt-1.5 sm:mt-2 truncate text-[12px] sm:text-base font-black tracking-tight text-white md:text-lg">Command Center cho ứng dụng Termux riêng của bạn</h2>
+                        <p className="mt-1 hidden text-[10px] leading-relaxed text-[#8B949E] sm:block sm:text-[11px]">
                           Một luồng rõ ràng từ prompt → agent → workspace → deploy, tối ưu cho mobile, bàn phím ảo và terminal tối màu.
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] uppercase tracking-wider">
+                        <div className="mt-2 hidden flex-wrap gap-1.5 text-[9px] uppercase tracking-wider sm:flex">
                           {TERKIX_APP_CAPABILITIES.map((capability) => (
                             <span key={capability} className="rounded-full border border-[#30363D] bg-black/35 px-2 py-0.5 text-[#C9D1D9]">
                               {capability}
@@ -2860,47 +2860,47 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-5">
-                    <div className="rounded-2xl border border-[#3FB950]/20 bg-[#3FB950]/8 p-3">
+                  <div className="grid grid-cols-5 gap-1.5 sm:gap-2 text-[8px] sm:text-[10px]">
+                    <div className="rounded-xl sm:rounded-2xl border border-[#3FB950]/20 bg-[#3FB950]/8 p-2 sm:p-3">
                       <div className="text-[#8B949E]">CPU</div>
-                      <div className="mt-1 text-lg font-black text-[#3FB950]">{latestTelemetry.cpu.toFixed(2)}%</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#3FB950]">{latestTelemetry.cpu.toFixed(2)}%</div>
                     </div>
-                    <div className="rounded-2xl border border-[#58A6FF]/20 bg-[#58A6FF]/8 p-3">
+                    <div className="rounded-xl sm:rounded-2xl border border-[#58A6FF]/20 bg-[#58A6FF]/8 p-2 sm:p-3">
                       <div className="text-[#8B949E]">AGENTS</div>
-                      <div className="mt-1 text-lg font-black text-[#58A6FF]">{activeAgentCount}/6</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#58A6FF]">{activeAgentCount}/6</div>
                     </div>
-                    <div className="rounded-2xl border border-[#BC8CFF]/20 bg-[#BC8CFF]/8 p-3">
+                    <div className="rounded-xl sm:rounded-2xl border border-[#BC8CFF]/20 bg-[#BC8CFF]/8 p-2 sm:p-3">
                       <div className="text-[#8B949E]">LIVE</div>
-                      <div className="mt-1 text-lg font-black text-[#BC8CFF]">{liveDeploymentsCount}</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#BC8CFF]">{liveDeploymentsCount}</div>
                     </div>
                     <button
                       type="button"
                       onClick={handleInstallApp}
-                      className="rounded-2xl border border-[#D29922]/25 bg-[#D29922]/8 p-3 text-left transition hover:border-[#D29922]/60 hover:bg-[#D29922]/15"
+                      className="rounded-xl sm:rounded-2xl border border-[#D29922]/25 bg-[#D29922]/8 p-2 sm:p-3 text-left transition hover:border-[#D29922]/60 hover:bg-[#D29922]/15"
                     >
                       <div className="text-[#8B949E]">APP</div>
-                      <div className="mt-1 text-lg font-black text-[#D29922]">
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#D29922]">
                         {pwaInstallState === "installed" ? "ON" : pwaInstallState === "available" ? "GET" : "PWA"}
                       </div>
                     </button>
-                    <div className="rounded-2xl border border-[#30363D] bg-[#0D1117]/80 p-3">
+                    <div className="rounded-xl sm:rounded-2xl border border-[#30363D] bg-[#0D1117]/80 p-2 sm:p-3">
                       <div className="text-[#8B949E]">HISTORY</div>
-                      <div className="mt-1 text-lg font-black text-[#C9D1D9]">{commandHistory.length}</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#C9D1D9]">{commandHistory.length}</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-4 text-[10px]">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-4 text-[8.5px] sm:text-[10px]">
                   {TERKIX_FLOW_STEPS.map((step) => (
-                    <div key={step.label} className={`group rounded-xl border px-3 py-2 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${step.color}`}>
+                    <div key={step.label} className={`group rounded-lg sm:rounded-xl border px-2 py-1.5 sm:px-3 sm:py-2 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${step.color}`}>
                       <div className="font-black tracking-widest">{step.label}</div>
                       <div className="mt-1 text-[#E6EDF3] normal-case tracking-normal">{step.text}</div>
-                      <div className="mt-1 text-[9px] text-[#8B949E] normal-case tracking-normal">{step.detail}</div>
+                      <div className="mt-1 hidden text-[9px] text-[#8B949E] normal-case tracking-normal sm:block">{step.detail}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 text-[10px]">
+                <div className="mt-2 sm:mt-3 flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 text-[9px] sm:text-[10px] terkix-command-actions">
                   <button
                     type="button"
                     onClick={handleInstallApp}
@@ -2966,8 +2966,8 @@ export default function App() {
                       terminalScrollRef.current = true;
                     }
                   }}
-                  className={`flex-1 p-5 font-mono overflow-y-auto space-y-3.5 select-text ${
-                    consoleFontSize === "sm" ? "text-[10.5px]" : consoleFontSize === "lg" ? "text-[14.5px]" : "text-[12.5px]"
+                  className={`flex-1 p-3 sm:p-5 font-mono overflow-y-auto space-y-2 sm:space-y-3.5 select-text ${
+                    consoleFontSize === "sm" ? "text-[9.5px] sm:text-[10.5px]" : consoleFontSize === "lg" ? "text-[12px] sm:text-[14.5px]" : "text-[10.5px] sm:text-[12.5px]"
                   }`}
                 >
                     
@@ -3041,7 +3041,7 @@ export default function App() {
                       }
                       if (line.type === "warning") {
                         return (
-                          <div key={line.id} className="text-[#D29922] font-medium bg-[#D29922]/5 p-2.5 rounded border border-[#D29922]/20 leading-relaxed font-sans flex gap-2">
+                          <div key={line.id} className="text-[#D29922] font-medium bg-[#D29922]/5 p-2 sm:p-2.5 rounded border border-[#D29922]/20 leading-relaxed font-sans flex gap-2">
                             <AlertTriangle size={15} className="shrink-0 mt-0.5 text-[#D29922]" />
                             <span>{line.text}</span>
                           </div>
@@ -3070,7 +3070,7 @@ export default function App() {
 
                     {/* Typing stream thinking indicators */}
                     {isProcessing && (
-                      <div className="flex gap-2.5 items-center text-[#58A6FF] font-bold py-1">
+                      <div className="flex gap-2 items-center text-[#58A6FF] font-bold py-0.5 sm:py-1">
                         <span className="animate-pulse bg-[#58A6FF]/20 px-2 py-0.5 rounded text-[10px]">AI RUNNING</span>
                         <div className="flex items-center gap-1">
                           <span className="w-1.5 h-1.5 bg-[#58A6FF] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -3084,14 +3084,14 @@ export default function App() {
                   </div>
 
                   {/* Authentic Termux Virtual Keyboard bar accessory panel */}
-                <div className="flex items-center justify-between border-t border-[#13171e] bg-[#070a0e] px-3 py-1.5 gap-1.5 select-none overflow-x-auto shrink-0" id="termux-virtual-keyboard">
+                <div className="terkix-keyboard-dock flex items-center justify-between border-t border-[#13171e] bg-[#070a0e] px-2 sm:px-3 py-1 sm:py-1.5 gap-1 select-none overflow-x-auto shrink-0" id="termux-virtual-keyboard">
                   <div className="flex gap-1">
                     {["ESC", "TAB", "CTRL", "ALT", "↑", "↓", "-", "+", "CLEAR"].map(k => (
                       <button
                         key={k}
                         type="button"
                         onClick={() => handleTermKeyAction(k)}
-                        className="px-2.5 py-1 font-mono text-[10px] font-bold bg-[#141921] border border-[#2a303b] text-slate-300 hover:text-white rounded-md cursor-pointer select-none active:bg-neutral-850 hover:border-slate-500 active:scale-95 transition pointer-events-auto"
+                        className="px-2 sm:px-2.5 py-0.5 sm:py-1 font-mono text-[8.5px] sm:text-[10px] font-bold bg-[#141921] border border-[#2a303b] text-slate-300 hover:text-white rounded-md cursor-pointer select-none active:bg-neutral-850 hover:border-slate-500 active:scale-95 transition pointer-events-auto"
                       >
                         {k}
                       </button>
@@ -3103,7 +3103,7 @@ export default function App() {
                         key={k}
                         type="button"
                         onClick={() => handleTermKeyAction(k)}
-                        className="px-2 py-1 font-mono text-[9px] font-bold bg-[#141921] border border-[#2a303b] text-gray-400 rounded-md cursor-pointer hover:text-white select-none active:scale-95 transition pointer-events-auto"
+                        className="px-1.5 sm:px-2 py-0.5 sm:py-1 font-mono text-[8px] sm:text-[9px] font-bold bg-[#141921] border border-[#2a303b] text-gray-400 rounded-md cursor-pointer hover:text-white select-none active:scale-95 transition pointer-events-auto"
                       >
                         {k}
                       </button>
@@ -3114,9 +3114,9 @@ export default function App() {
                 {/* Fully Integrated Termux Command Console Input field of Termux */}
                 <form
                   onSubmit={handleCommandSubmit}
-                  className="h-12 border-t border-[#1b212c] px-3.5 flex items-center gap-2.5 bg-[#02050a]/95 shrink-0 focus-within:bg-[#03070f] focus-within:border-[#3FB950]/55 transition-all duration-150 shadow-[0_-18px_40px_rgba(0,0,0,0.38)]"
+                  className="h-10 sm:h-12 border-t border-[#1b212c] px-2.5 sm:px-3.5 flex items-center gap-1.5 sm:gap-2.5 bg-[#02050a]/95 shrink-0 focus-within:bg-[#03070f] focus-within:border-[#3FB950]/55 transition-all duration-150 shadow-[0_-18px_40px_rgba(0,0,0,0.38)]"
                 >
-                  <span className="text-emerald-400 font-extrabold font-mono text-[12.5px] select-none tracking-tight animate-pulse">~ $</span>
+                  <span className="text-emerald-400 font-extrabold font-mono text-[10px] sm:text-[12.5px] select-none tracking-tight animate-pulse">~ $</span>
                   <input
                     type="text"
                     value={commandText}
@@ -3135,7 +3135,7 @@ export default function App() {
                     }}
                     disabled={isProcessing}
                     placeholder="Nhập lệnh TerKix hoặc mô tả app muốn tạo/tối ưu..."
-                    className="bg-transparent border-none outline-none flex-1 font-mono text-[11.5px] md:text-[12px] font-bold text-white placeholder-gray-600 focus:ring-0 select-text leading-relaxed tracking-wide"
+                    className="bg-transparent border-none outline-none flex-1 font-mono text-[10px] sm:text-[11.5px] md:text-[12px] font-bold text-white placeholder-gray-600 focus:ring-0 select-text leading-relaxed tracking-wide min-w-0"
                     autoFocus
                   />
                   
@@ -3150,7 +3150,7 @@ export default function App() {
                         setDetailedReasoningText("");
                       }
                     }}
-                    className={`px-2.5 py-1 text-[11px] font-sans font-bold rounded border transition flex items-center gap-1 cursor-pointer select-none pointer-events-auto ${
+                    className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-sans font-bold rounded border transition flex items-center gap-1 cursor-pointer select-none pointer-events-auto ${
                       thinkingMode 
                         ? "bg-violet-950/40 border-violet-500 text-violet-300 shadow font-extrabold animate-pulse" 
                         : "bg-[#0b1017] border-[#202730] text-gray-400 hover:text-white"
@@ -3164,7 +3164,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={isProcessing}
-                    className="p-1.5 px-4 text-[#0D1117] font-black text-xs font-sans rounded-lg bg-[#3FB950] hover:bg-green-400 transition flex items-center gap-1.5 cursor-pointer shrink-0 pointer-events-auto shadow-[0_0_18px_rgba(63,185,80,0.28)] disabled:opacity-50"
+                    className="p-1.5 px-3 sm:px-4 text-[#0D1117] font-black text-[10px] sm:text-xs font-sans rounded-lg bg-[#3FB950] hover:bg-green-400 transition flex items-center gap-1.5 cursor-pointer shrink-0 pointer-events-auto shadow-[0_0_18px_rgba(63,185,80,0.28)] disabled:opacity-50"
                   >
                     <span>run</span>
                     <Send size={10} />

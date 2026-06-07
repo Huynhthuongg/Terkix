@@ -87,3 +87,70 @@
     linear-gradient(180deg, rgba(8, 11, 16, 0.92), rgba(0, 0, 0, 0.98)),
     radial-gradient(circle at 50% 0%, rgba(63, 185, 80, 0.08), transparent 36%);
 }
+
+/* Compact mobile shell: keep the whole TerKix cockpit visible instead of feeling browser-zoomed. */
+.terkix-app-shell {
+  font-size: 12px;
+}
+
+.terkix-dashboard-overlay {
+  overscroll-behavior: contain;
+}
+
+.terkix-keyboard-dock {
+  scrollbar-width: none;
+}
+
+.terkix-keyboard-dock::-webkit-scrollbar,
+.terkix-command-actions::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-height: 100%;
+    background: #030508;
+    overscroll-behavior: none;
+  }
+
+  .terkix-app-shell {
+    font-size: 10px;
+  }
+
+  .terkix-command-deck {
+    max-height: 35vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .terkix-command-deck::after {
+    top: -70px;
+    right: -90px;
+    width: 210px;
+    height: 210px;
+    opacity: 0.65;
+  }
+
+  .terkix-dashboard-overlay {
+    font-size: 12px;
+  }
+
+  .terkix-terminal-glass {
+    min-height: 0;
+  }
+
+  .terkix-command-deck,
+  .terkix-dashboard-compact {
+    zoom: 0.88;
+  }
+}
+
+@media (max-height: 720px) {
+  .terkix-command-deck {
+    max-height: 31vh;
+    overflow-y: auto;
+  }
+}
