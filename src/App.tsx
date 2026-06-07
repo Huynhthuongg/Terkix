@@ -46,12 +46,48 @@ import {
   MicOff
 } from "lucide-react";
 import { Project, WorkspaceFile, Agent, TerminalLine, Deployment, GitCommit } from "./types";
+import { readJsonStorage, readNumberStorage, readStringStorage, writeStorage } from "./utils/storage";
 import { PRESET_PROJECTS } from "./data/presets";
 import DashboardOverview from "./components/DashboardOverview";
 import ProjectList from "./components/ProjectList";
 import ContactsManager, { Contact } from "./components/ContactsManager";
 import PluginManager, { CustomPlugin } from "./components/PluginManager";
 import TelemetryD3Chart from "./components/TelemetryD3Chart";
+
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
+type ConsoleFontSize = "sm" | "base" | "lg";
+type ThemeColor = "green" | "amber" | "cyan" | "violet";
+
+interface TerKixUiPreferences {
+  consoleFontSize: ConsoleFontSize;
+  themeColor: ThemeColor;
+  crtFilter: boolean;
+  showLegacySidebar: boolean;
+}
+
+const DEFAULT_UI_PREFERENCES: TerKixUiPreferences = {
+  consoleFontSize: "sm",
+  themeColor: "green",
+  crtFilter: false,
+  showLegacySidebar: false,
+};
+
+const isUiPreferences = (value: unknown): value is TerKixUiPreferences => {
+  const candidate = value as Partial<TerKixUiPreferences>;
+  return (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    ["sm", "base", "lg"].includes(candidate.consoleFontSize || "") &&
+    ["green", "amber", "cyan", "violet"].includes(candidate.themeColor || "") &&
+    typeof candidate.crtFilter === "boolean" &&
+    typeof candidate.showLegacySidebar === "boolean"
+  );
+};
 
 const DEFAULT_AGENTS: Agent[] = [
   { id: "planner", name: "Planner Agent", role: "Planner", description: "Requirement analysis, task decomposition, and workflow plan generation.", status: "idle", lastAction: "Standby.", color: "bg-[#58A6FF]" },
@@ -63,43 +99,89 @@ const DEFAULT_AGENTS: Agent[] = [
 ];
 
 const INITIAL_LINES: TerminalLine[] = [
-  { id: "init-1", type: "system", text: "RKix Terminal OS [Version 1.0.4] - Secure Dev Kernel", timestamp: new Date().toLocaleTimeString() },
+  { id: "init-1", type: "system", text: "TerKix Terminal OS [Version 1.0.4] - Secure Dev Kernel", timestamp: new Date().toLocaleTimeString() },
   { id: "init-2", type: "system", text: "Initializing isolated multi-agent software sandboxes...", timestamp: new Date().toLocaleTimeString() },
   { id: "init-3", type: "success", text: "Core kernel boot completed inside micro-container in 12ms.", timestamp: new Date().toLocaleTimeString() },
   { id: "init-4", type: "agent-info", text: "[PLANNER] Directives compiled. Ready for requirements parsing.", timestamp: new Date().toLocaleTimeString(), agent: "Planner" },
   { id: "init-5", type: "agent-info", text: "[BUILDER] Scaffolding matrices loaded. Standby state verified.", timestamp: new Date().toLocaleTimeString(), agent: "Builder" },
   { id: "init-6", type: "agent-success", text: "All 6 autonomous agents registered and synchronized.", timestamp: new Date().toLocaleTimeString(), agent: "Designer" },
-  { id: "init-7", type: "warning", text: "Type 'help' to review RKix custom terminal commands or enter a natural prompt to spawn assets.", timestamp: new Date().toLocaleTimeString() },
+  { id: "init-7", type: "warning", text: "Type 'help' to review TerKix custom terminal commands or enter a natural prompt to spawn assets.", timestamp: new Date().toLocaleTimeString() },
 ];
 
+const TERKIX_FLOW_STEPS = [
+  {
+    label: "01 COMMAND",
+    text: "Gõ ý tưởng Termux/terminal",
+    detail: "Prompt tiếng Việt hoặc shell command",
+    color: "text-[#3FB950] border-[#3FB950]/25 bg-[#3FB950]/8",
+  },
+  {
+    label: "02 AGENTS",
+    text: "Planner + Builder xử lý",
+    detail: "Tự động chia việc cho agent stack",
+    color: "text-[#58A6FF] border-[#58A6FF]/25 bg-[#58A6FF]/8",
+  },
+  {
+    label: "03 WORKSPACE",
+    text: "Tạo file, preview, chỉnh sửa",
+    detail: "Duyệt project và xem live output",
+    color: "text-[#F0883E] border-[#F0883E]/25 bg-[#F0883E]/8",
+  },
+  {
+    label: "04 DEPLOY",
+    text: "Đóng gói & chia sẻ link",
+    detail: "Mô phỏng release production",
+    color: "text-[#BC8CFF] border-[#BC8CFF]/25 bg-[#BC8CFF]/8",
+  },
+];
+
+const TERKIX_QUICK_ACTIONS = [
+  { label: "Tạo app Termux", command: "create a polished Termux-style mobile developer dashboard for TerKix" },
+  { label: "Tối ưu UI", command: "optimize the current app UI for mobile, dark terminal contrast, and clearer command flow" },
+  { label: "Sinh landing page", command: "build a premium TerKix landing page with hero, features, pricing, and deploy CTA" },
+  { label: "Debug toàn bộ", command: "scan all workspace files, fix UI bugs, and summarize quality issues" },
+];
+
+const TERKIX_APP_CAPABILITIES = ["PWA installable", "Offline shell cache", "Mobile keyboard dock", "Agent command deck", "Snapshot export"];
+
+
 export default function App() {
-  const rkixRootRef = useRef<HTMLDivElement>(null);
+  const terkixRootRef = useRef<HTMLDivElement>(null);
 
   // Persistence state loaders
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem("rkix_projects");
-    return saved ? JSON.parse(saved) : PRESET_PROJECTS;
-  });
+  const [projects, setProjects] = useState<Project[]>(() =>
+    readJsonStorage<Project[]>("terkix_projects", PRESET_PROJECTS, (value): value is Project[] =>
+      Array.isArray(value) && value.every((item) => typeof item?.id === "string" && Array.isArray(item?.files)),
+      ["rkix_projects"]
+    )
+  );
 
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    const saved = localStorage.getItem("rkix_active_project_id");
-    if (saved) return saved;
-    return PRESET_PROJECTS[0]?.id || "";
-  });
+  const [activeProjectId, setActiveProjectId] = useState<string>(() =>
+    readStringStorage("terkix_active_project_id", PRESET_PROJECTS[0]?.id || "", ["rkix_active_project_id"])
+  );
 
   const [currentSection, setCurrentSection] = useState<string>("terminal");
-  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() => {
-    const saved = localStorage.getItem("rkix_terminal_lines");
-    return saved ? JSON.parse(saved) : INITIAL_LINES;
-  });
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() =>
+    readJsonStorage<TerminalLine[]>("terkix_terminal_lines", INITIAL_LINES, (value): value is TerminalLine[] =>
+      Array.isArray(value) && value.every((item) => typeof item?.id === "string" && typeof item?.text === "string"),
+      ["rkix_terminal_lines"]
+    )
+  );
 
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [commandText, setCommandText] = useState<string>("");
+  const [commandHistory, setCommandHistory] = useState<string[]>(() =>
+    readJsonStorage<string[]>("terkix_command_history", [], (value): value is string[] =>
+      Array.isArray(value) && value.every((item) => typeof item === "string"),
+      ["rkix_command_history"]
+    )
+  );
+  const [historyCursor, setHistoryCursor] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [totalCommandsRun, setTotalCommandsRun] = useState<number>(() => {
-    const saved = localStorage.getItem("rkix_total_commands");
-    return saved ? parseInt(saved, 10) : 0;
-  });
+  const [totalCommandsRun, setTotalCommandsRun] = useState<number>(() =>
+    readNumberStorage("terkix_total_commands", 0, ["rkix_total_commands"])
+  );
 
   // File explorer states
   const [selectedFilePath, setSelectedFilePath] = useState<string>("");
@@ -119,8 +201,10 @@ export default function App() {
   const [showContext, setShowContext] = useState<boolean>(false);
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaInstallState, setPwaInstallState] = useState<"ready" | "available" | "installed">("ready");
 
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [longPressedTriggered, setLongPressedTriggered] = useState<boolean>(false);
 
   const startLongPressTimer = () => {
@@ -220,12 +304,76 @@ export default function App() {
     }
   }, [isMicActive, micStream]);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+      setPwaInstallState("available");
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      setPwaInstallState("installed");
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncViewportHeight = () => {
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--terkix-viewport-height", `${viewportHeight}px`);
+    };
+
+    syncViewportHeight();
+    window.addEventListener("resize", syncViewportHeight);
+    window.visualViewport?.addEventListener("resize", syncViewportHeight);
+    window.visualViewport?.addEventListener("scroll", syncViewportHeight);
+
+    return () => {
+      window.removeEventListener("resize", syncViewportHeight);
+      window.visualViewport?.removeEventListener("resize", syncViewportHeight);
+      window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
+      document.documentElement.style.removeProperty("--terkix-viewport-height");
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPromptEvent) {
+      setTerminalLines(prev => [
+        ...prev,
+        {
+          id: `pwa-${Date.now()}`,
+          type: "system",
+          text: "TerKix PWA shell is configured. If your browser supports installation, use Add to Home Screen / Install App from the browser menu.",
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+      return;
+    }
+
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice;
+    setPwaInstallState(choice.outcome === "accepted" ? "installed" : "ready");
+    setInstallPromptEvent(null);
+  };
+
+  const [uiPreferences, setUiPreferences] = useState<TerKixUiPreferences>(() =>
+    readJsonStorage<TerKixUiPreferences>("terkix_ui_preferences", DEFAULT_UI_PREFERENCES, isUiPreferences)
+  );
+
   // Termux UI responsive states
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
-  const [consoleFontSize, setConsoleFontSize] = useState<"sm" | "base" | "lg">("base");
-  const [themeColor, setThemeColor] = useState<"green" | "amber" | "cyan" | "violet">("green");
-  const [showLegacySidebar, setShowLegacySidebar] = useState<boolean>(false);
-  const [crtFilter, setCrtFilter] = useState<boolean>(false);
+  const [consoleFontSize, setConsoleFontSize] = useState<ConsoleFontSize>(uiPreferences.consoleFontSize);
+  const [themeColor, setThemeColor] = useState<ThemeColor>(uiPreferences.themeColor);
+  const [showLegacySidebar, setShowLegacySidebar] = useState<boolean>(uiPreferences.showLegacySidebar);
+  const [crtFilter, setCrtFilter] = useState<boolean>(uiPreferences.crtFilter);
 
   // Real-time Telemetry metrics history
   const [telemetryHistory, setTelemetryHistory] = useState<{ cpu: number; ping: number }[]>(() => {
@@ -240,7 +388,7 @@ export default function App() {
     {
       resourceName: "people/c1",
       name: "Nguyễn Văn Hùng",
-      email: "hung.nguyen@rkix.dev",
+      email: "hung.nguyen@terkix.dev",
       phone: "+84 901 234 567",
       role: "Lead Architect",
       isCollaborating: true
@@ -248,7 +396,7 @@ export default function App() {
     {
       resourceName: "people/c2",
       name: "Trần Thị Mai",
-      email: "mai.tran@rkix.dev",
+      email: "mai.tran@terkix.dev",
       phone: "+84 912 345 678",
       role: "Designer Agent",
       isCollaborating: true
@@ -278,7 +426,7 @@ export default function App() {
       name: "Standard Uptime",
       type: "command",
       triggerCommand: "uptime",
-      responseOutput: "[SYSTEM STATUS] RKix Terminal OS uptime: 14h 32m 11s. Core server container response delay: 2.13ms.",
+      responseOutput: "[SYSTEM STATUS] TerKix Terminal OS uptime: 14h 32m 11s. Core server container response delay: 2.13ms.",
       isEnabled: true
     }
   ]);
@@ -400,26 +548,60 @@ export default function App() {
     }, 1200);
   };
 
-  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
+  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || PRESET_PROJECTS[0];
 
   useEffect(() => {
-    localStorage.setItem("rkix_projects", JSON.stringify(projects));
+    if (projects.length === 0) {
+      setProjects(PRESET_PROJECTS);
+      setActiveProjectId(PRESET_PROJECTS[0]?.id || "");
+      return;
+    }
+
+    if (!projects.some((project) => project.id === activeProjectId)) {
+      setActiveProjectId(projects[0].id);
+    }
+  }, [activeProjectId, projects]);
+
+  useEffect(() => {
+    writeStorage("terkix_projects", projects);
   }, [projects]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_active_project_id", activeProjectId);
+    writeStorage("terkix_active_project_id", activeProjectId);
     if (activeProject && activeProject.files.length > 0) {
-      setSelectedFilePath(activeProject.files[0].path);
+      setSelectedFilePath((current) =>
+        activeProject.files.some((file) => file.path === current) ? current : activeProject.files[0].path
+      );
     }
   }, [activeProjectId, activeProject]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_terminal_lines", JSON.stringify(terminalLines));
+    writeStorage("terkix_terminal_lines", terminalLines);
   }, [terminalLines]);
 
   useEffect(() => {
-    localStorage.setItem("rkix_total_commands", totalCommandsRun.toString());
+    writeStorage("terkix_total_commands", totalCommandsRun.toString());
   }, [totalCommandsRun]);
+
+  useEffect(() => {
+    writeStorage("terkix_command_history", commandHistory.slice(0, 30));
+  }, [commandHistory]);
+
+  useEffect(() => {
+    const nextPreferences = { consoleFontSize, themeColor, crtFilter, showLegacySidebar };
+    setUiPreferences(nextPreferences);
+    writeStorage("terkix_ui_preferences", nextPreferences);
+  }, [consoleFontSize, themeColor, crtFilter, showLegacySidebar]);
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", syncOnlineState);
+    window.addEventListener("offline", syncOnlineState);
+    return () => {
+      window.removeEventListener("online", syncOnlineState);
+      window.removeEventListener("offline", syncOnlineState);
+    };
+  }, []);
 
   // Update Real-time Telemetry Metrics periodically to drive live D3 visualizations
   useEffect(() => {
@@ -476,6 +658,27 @@ export default function App() {
     }
   }, [chatMessages, currentSection]);
 
+  const recallCommandHistory = (direction: "previous" | "next") => {
+    if (commandHistory.length === 0) return;
+
+    if (direction === "previous") {
+      const nextCursor = historyCursor === null ? 0 : Math.min(historyCursor + 1, commandHistory.length - 1);
+      setHistoryCursor(nextCursor);
+      setCommandText(commandHistory[nextCursor]);
+      return;
+    }
+
+    if (historyCursor === null) return;
+    const nextCursor = historyCursor - 1;
+    if (nextCursor < 0) {
+      setHistoryCursor(null);
+      setCommandText("");
+    } else {
+      setHistoryCursor(nextCursor);
+      setCommandText(commandHistory[nextCursor]);
+    }
+  };
+
   // Handle Termux custom interactive key modifiers
   const handleTermKeyAction = (action: string) => {
     if (action === "ESC") {
@@ -510,7 +713,7 @@ export default function App() {
         { id: `crt-${Date.now()}`, type: "system", text: `[MONITOR] CRT Scanline phosphor overlay: ${!crtFilter ? "ACTIVATED" : "DEACTIVATED"}`, timestamp: new Date().toLocaleTimeString() }
       ]);
     } else if (action === "ALT") {
-      const themes: Array<"green" | "amber" | "cyan" | "violet"> = ["green", "amber", "cyan", "violet"];
+      const themes: ThemeColor[] = ["green", "amber", "cyan", "violet"];
       const nextTheme = themes[(themes.indexOf(themeColor) + 1) % themes.length];
       setThemeColor(nextTheme);
       setTerminalLines(prev => [
@@ -525,6 +728,10 @@ export default function App() {
       else if (consoleFontSize === "base") setConsoleFontSize("lg");
     } else if (action === "CLEAR") {
       setTerminalLines([]);
+    } else if (action === "↑") {
+      recallCommandHistory("previous");
+    } else if (action === "↓") {
+      recallCommandHistory("next");
     } else if (action === "PGUP") {
       if (terminalEndRef.current) {
         terminalEndRef.current.parentNode?.dispatchEvent(new CustomEvent('scroll-up'));
@@ -555,6 +762,8 @@ export default function App() {
     if (!cleanCmd) return;
 
     setCommandText("");
+    setHistoryCursor(null);
+    setCommandHistory(prev => [cleanCmd, ...prev.filter((entry) => entry !== cleanCmd)].slice(0, 30));
     
     // Add prompt user input visual line to terminal console
     const inputTimestamp = new Date().toLocaleTimeString();
@@ -611,7 +820,7 @@ export default function App() {
         {
           id: respId,
           type: "system",
-          text: `\nRKix Command Line Reference Guide:\n` +
+          text: `\nTerKix Command Line Reference Guide:\n` +
                 `---------------------------------------------------------------------------------\n` +
                 `$ clear                   - Flush clean the active console log stream.\n` +
                 `$ help                    - Display this system reference manual.\n` +
@@ -683,7 +892,7 @@ export default function App() {
       const newCommit: GitCommit = {
         hash: Math.random().toString(16).slice(2, 9),
         message: commitMsg.replace(/['"]/g, ""),
-        author: "nvht2505@gmail.com <RKix Console>",
+        author: "nvht2505@gmail.com <TerKix Console>",
         date: new Date().toISOString()
       };
 
@@ -1083,13 +1292,13 @@ export default function App() {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RKix Software Output</title>
+  <title>TerKix Software Output</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-[#0D1117] text-[#E6EDF3] p-10 font-sans">
   <div class="max-w-2xl mx-auto border border-[#30363D] bg-[#161B22] p-8 rounded-xl shadow-2xl">
     <h1 class="text-2xl font-bold text-white mb-2">Active Sandbox Terminal Live</h1>
-    <p class="text-xs text-[#58A6FF] font-mono mb-6">$ rkix command execute --success</p>
+    <p class="text-xs text-[#58A6FF] font-mono mb-6">$ terkix command execute --success</p>
     
     <div class="p-4 bg-black/40 border border-[#30363D] rounded-lg mb-6">
       <p class="text-xs text-gray-400">Directive:</p>
@@ -1098,7 +1307,7 @@ export default function App() {
     <ul class="space-y-2 text-xs text-gray-400">
       <li>&bull; File "workspace/project/index.html" was updated with fresh styling.</li>
       <li>&bull; Workspace file system regenerated with standard assets.</li>
-      <li>&bull; Compiled successfully under RKix development environments.</li>
+      <li>&bull; Compiled successfully under TerKix development environments.</li>
     </ul>
   </div>
 </body>
@@ -1156,7 +1365,7 @@ export default function App() {
     const newF: WorkspaceFile = {
       path: pathInput,
       name,
-      content: `// New file ${name} - RKix Terminal OS`,
+      content: `// New file ${name} - TerKix Terminal OS`,
       language: pathInput.endsWith(".html") ? "html" : pathInput.endsWith(".css") ? "css" : "tsx"
     };
 
@@ -1211,7 +1420,7 @@ export default function App() {
         {
           hash: Math.random().toString(16).slice(2, 9),
           message: "Boilerplate workspace compiled successfully",
-          author: "RKix Planner Agent",
+          author: "TerKix Planner Agent",
           date: new Date().toISOString()
         }
       ],
@@ -1268,15 +1477,60 @@ export default function App() {
     setActiveProjectId(project.id);
   };
 
+  const resetUiPreferences = () => {
+    setConsoleFontSize(DEFAULT_UI_PREFERENCES.consoleFontSize);
+    setThemeColor(DEFAULT_UI_PREFERENCES.themeColor);
+    setCrtFilter(DEFAULT_UI_PREFERENCES.crtFilter);
+    setShowLegacySidebar(DEFAULT_UI_PREFERENCES.showLegacySidebar);
+    setTerminalLines(prev => [
+      ...prev,
+      {
+        id: `prefs-${Date.now()}`,
+        type: "system",
+        text: "TerKix UI preferences reset to the optimized default mobile terminal layout.",
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
+
+  const exportWorkspaceSnapshot = () => {
+    const snapshot = {
+      exportedAt: new Date().toISOString(),
+      app: "TerKix Terminal OS",
+      activeProject,
+      commandHistory: commandHistory.slice(0, 30),
+      uiPreferences: { consoleFontSize, themeColor, crtFilter, showLegacySidebar },
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `terkix-${activeProject.id}-snapshot.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setTerminalLines(prev => [
+      ...prev,
+      {
+        id: `export-${Date.now()}`,
+        type: "success",
+        text: `[EXPORT] Snapshot prepared for ${activeProject.name}. Includes workspace files, command history, and UI preferences.`,
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
+
   // Active file HTML output extraction for iframe srcDoc
   const indexHtmlCode = activeProject.files.find(f => f.name === "index.html" || f.path.endsWith("index.html"))?.content || "";
+  const latestTelemetry = telemetryHistory[telemetryHistory.length - 1] || { cpu: 2.13, ping: 1.94 };
+  const liveDeploymentsCount = activeProject.deployments.filter((deployment) => deployment.status === "live").length;
+  const activeAgentCount = agents.filter((agent) => agent.status === "running" || agent.status === "completed").length;
 
   return (
     <div 
-      id="rkix-root" 
-      ref={rkixRootRef}
-      className="w-all-screen w-screen h-screen overflow-hidden max-h-screen relative flex bg-[#030508] text-[#E6EDF3] font-mono select-none"
-      style={{ touchAction: "none" }}
+      id="terkix-root" 
+      ref={terkixRootRef}
+      className="terkix-app-shell terkix-grid-bg w-all-screen w-screen h-screen overflow-hidden max-h-screen relative flex bg-[#030508] text-[#E6EDF3] font-mono select-none"
+      style={{ touchAction: "manipulation" }}
     >
       {/* Absolute CRT monitor phosphor raster grid overlay */}
       {crtFilter && (
@@ -1292,33 +1546,39 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="fixed inset-0 z-40 bg-[#06080c]/98 backdrop-blur-md flex flex-col p-4 md:p-8 overflow-y-auto selection:bg-[#3FB950]/30 select-text font-sans scroll-smooth"
+            className="terkix-dashboard-overlay fixed inset-0 z-40 bg-[#06080c]/98 backdrop-blur-md flex flex-col p-2.5 sm:p-4 md:p-6 overflow-y-auto selection:bg-[#3FB950]/30 select-text font-sans scroll-smooth"
           >
             {/* Overlay Header Banner */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#30363D] pb-5 mb-6 gap-4 shrink-0">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-[#3FB950] animate-pulse"></span>
-                  <p className="text-[9px] tracking-widest font-mono uppercase bg-[#3FB950]/10 text-[#3FB950] px-2.5 py-0.5 rounded font-extrabold border border-[#3FB950]/20">
-                    RKix Automated Sandbox Core
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#30363D] pb-2.5 md:pb-5 mb-2.5 md:mb-6 gap-2.5 md:gap-4 shrink-0">
+              <div className="flex items-center gap-2.5 md:gap-4">
+                <img src="/terkix-logo.svg" alt="TerKix logo" className="h-10 w-10 md:h-14 md:w-14 rounded-xl md:rounded-2xl border border-[#30363D] bg-black/50 shadow-[0_0_30px_rgba(88,166,255,0.18)]" />
+                <div>
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
+                    <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-[#3FB950] animate-pulse"></span>
+                    <p className="text-[8px] md:text-[9px] tracking-widest font-mono uppercase bg-[#3FB950]/10 text-[#3FB950] px-2 md:px-2.5 py-0.5 rounded font-extrabold border border-[#3FB950]/20">
+                      TerKix Termux Sandbox Core
+                    </p>
+                    <span className="hidden sm:inline-flex text-[9px] tracking-widest font-mono uppercase bg-[#58A6FF]/10 text-[#58A6FF] px-2.5 py-0.5 rounded font-extrabold border border-[#58A6FF]/20">
+                      Prompt → Build → Preview → Deploy
+                    </span>
+                  </div>
+                  <h1 className="text-base md:text-2xl font-black text-white mt-1 md:mt-1.5 flex items-center gap-2">
+                    <Sliders className="text-[#3FB950]" size={21} /> TERKIX APP COCKPIT
+                  </h1>
+                  <p className="hidden sm:block text-[10px] md:text-xs text-[#8B949E] mt-0.5 font-medium font-sans">
+                    Termux-style shell UI &bull; Active Sandbox Layer Matrix &bull; Realtime Sync Verified
                   </p>
                 </div>
-                <h1 className="text-xl md:text-2xl font-black text-white mt-1.5 flex items-center gap-2">
-                  <Sliders className="text-[#3FB950]" size={21} /> RKIX U-SYSTEM COCKPIT
-                </h1>
-                <p className="text-xs text-[#8B949E] mt-0.5 font-medium font-sans">
-                  Active Sandbox Layer Matrix &bull; Realtime Sync Verified
-                </p>
               </div>
 
               {/* Close Action - Highly visible Quay lại/X action */}
-              <div className="flex items-center gap-3 w-full md:w-auto self-stretch md:self-auto justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto self-stretch sm:self-auto justify-end">
                 <button
                   onClick={() => setIsNavOpen(false)}
-                  className="bg-red-950/80 hover:bg-red-600 border border-red-500 text-red-200 hover:text-white px-4.5 py-2.5 rounded-lg text-xs font-black tracking-wider leading-normal cursor-pointer transition-all duration-150 flex items-center gap-1.5 shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.25)] uppercase"
+                  className="bg-red-950/80 hover:bg-red-600 border border-red-500 text-red-200 hover:text-white px-3 md:px-4.5 py-2 md:py-2.5 rounded-lg text-[10px] md:text-xs font-black tracking-wider leading-normal cursor-pointer transition-all duration-150 flex items-center gap-1.5 shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.25)] uppercase"
                   title="Nhấn để đóng giao diện menu và quay trở lại màn hình chính CLI."
                 >
-                  <X size={14} className="text-red-400 group-hover:text-white" /> ĐÓNG MENU & QUAY LẠI ✕
+                  <X size={14} className="text-red-400 group-hover:text-white" /> <span className="sm:hidden">ĐÓNG</span><span className="hidden sm:inline">ĐÓNG MENU & QUAY LẠI ✕</span>
                 </button>
               </div>
             </div>
@@ -1635,7 +1895,7 @@ export default function App() {
                               {
                                 hash: Math.random().toString(16).slice(2, 9),
                                 message: msg,
-                                author: "nvht2505@gmail.com <RKix Console>",
+                                author: "nvht2505@gmail.com <TerKix Console>",
                                 date: new Date().toISOString()
                               },
                               ...p.commitHistory
@@ -1732,20 +1992,20 @@ export default function App() {
             </div>
           ) : (
               /* Selected Sub-page View inside the Overlay */
-              <div className="flex-1 flex flex-col min-h-0 gap-4" id="overlay-module-viewport">
+              <div className="flex-1 flex flex-col min-h-0 gap-2.5 md:gap-4" id="overlay-module-viewport">
                 
                 {/* Visual Header / Navigation Breadcrumbs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#111622] p-3 rounded-xl border border-[#30363D]/80 font-mono shrink-0 gap-3">
-                  <div className="flex items-center gap-3 flex-wrap text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#111622] p-2 md:p-3 rounded-xl border border-[#30363D]/80 font-mono shrink-0 gap-2 md:gap-3">
+                  <div className="flex items-center gap-2 md:gap-3 flex-wrap text-[10px] md:text-xs">
                     <button 
                       onClick={() => setCurrentSection("terminal")} 
-                      className="px-4.5 py-2 text-[11.5px] font-black text-white hover:text-black bg-[#58A6FF]/15 hover:bg-[#58A6FF] border border-[#58A6FF]/40 rounded-lg cursor-pointer transition-all duration-150 flex items-center gap-1.5 leading-none select-none shadow-[0_0_12px_rgba(88,166,255,0.15)]"
+                      className="px-3 md:px-4.5 py-1.5 md:py-2 text-[10px] md:text-[11.5px] font-black text-white hover:text-black bg-[#58A6FF]/15 hover:bg-[#58A6FF] border border-[#58A6FF]/40 rounded-lg cursor-pointer transition-all duration-150 flex items-center gap-1.5 leading-none select-none shadow-[0_0_12px_rgba(88,166,255,0.15)]"
                     >
-                      <span>&larr; QUAY LẠI TRANG CHỦ MENU</span>
+                      <span className="sm:hidden">&larr; MENU</span><span className="hidden sm:inline">&larr; QUAY LẠI TRANG CHỦ MENU</span>
                     </button>
-                    <span className="text-gray-600 font-sans">/</span>
-                    <span className="text-[11.5px] text-gray-400 font-bold uppercase tracking-wider">
-                      Mục hiện tại: <span className="text-[#3FB950] font-extrabold font-mono text-[12px]">{currentSection}</span>
+                    <span className="hidden sm:inline text-gray-600 font-sans">/</span>
+                    <span className="text-[10px] md:text-[11.5px] text-gray-400 font-bold uppercase tracking-wider">
+                      Mục hiện tại: <span className="text-[#3FB950] font-extrabold font-mono text-[10.5px] md:text-[12px]">{currentSection}</span>
                     </span>
                   </div>
 
@@ -1754,9 +2014,9 @@ export default function App() {
                       setCurrentSection("terminal");
                       setIsNavOpen(false);
                     }}
-                    className="px-4 py-2 text-[11.5px] uppercase font-black text-white hover:text-white bg-red-900/40 hover:bg-red-650 border border-red-500/40 rounded-lg cursor-pointer transition-all duration-150 select-none self-stretch sm:self-auto flex items-center gap-1.5 justify-center shadow-md shadow-red-950/50"
+                    className="px-3 md:px-4 py-1.5 md:py-2 text-[10px] md:text-[11.5px] uppercase font-black text-white hover:text-white bg-red-900/40 hover:bg-red-650 border border-red-500/40 rounded-lg cursor-pointer transition-all duration-150 select-none self-stretch sm:self-auto flex items-center gap-1.5 justify-center shadow-md shadow-red-950/50"
                   >
-                    <X size={12} /> ĐÓNG MENU (QUAY LẠI TERMINAL)
+                    <X size={12} /> <span className="sm:hidden">ĐÓNG</span><span className="hidden sm:inline">ĐÓNG MENU (QUAY LẠI TERMINAL)</span>
                   </button>
                 </div>
 
@@ -1938,7 +2198,7 @@ export default function App() {
                       <div className="p-5 bg-[#161B22] rounded-xl border border-[#30363D]">
                         <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2 font-sans">
                           <Sliders className="text-[#3FB950]" size={20} />
-                          RKix AI Agent Architectures
+                          TerKix AI Agent Architectures
                         </h2>
                         <p className="text-xs text-[#8B949E] font-sans">
                           Configure and monitor autonomous roles inside your compiler sandbox pipeline.
@@ -2155,11 +2415,9 @@ export default function App() {
 
       {/* Legacy sidebars rendered only if showLegacySidebar is checked */}
       {showLegacySidebar && (
-        <nav id="rkix-nav-rail" className="w-16 min-h-screen flex flex-col items-center py-6 border-r border-[#30363D] bg-[#161B22] justify-between z-10 shrink-0 select-text">
+        <nav id="terkix-nav-rail" className="w-16 min-h-screen flex flex-col items-center py-6 border-r border-[#30363D] bg-[#161B22] justify-between z-10 shrink-0 select-text">
           <div className="flex flex-col items-center gap-8 w-full">
-            <div className="w-10 h-10 bg-[#58A6FF] rounded flex items-center justify-center text-[#0D1117] font-black text-xl mb-4 transition transform hover:scale-105" title="RKix Terminal OS">
-              RK
-            </div>
+            <img src="/terkix-logo.svg" alt="TerKix logo" className="w-11 h-11 rounded-xl border border-[#30363D] bg-black transition transform hover:scale-105 mb-4 shadow-[0_0_18px_rgba(63,185,80,0.25)]" title="TerKix Terminal OS" />
             
             <div className="flex flex-col gap-6 w-full px-2" id="nav-rail-tabs">
               <button
@@ -2258,7 +2516,7 @@ export default function App() {
       )}
 
       {showLegacySidebar && (
-        <aside id="rkix-sidebar" className="w-[230px] border-r border-[#30363D] bg-[#161B22] flex flex-col justify-between shrink-0 hidden md:flex select-text">
+        <aside id="terkix-sidebar" className="w-[230px] border-r border-[#30363D] bg-[#161B22] flex flex-col justify-between shrink-0 hidden md:flex select-text">
           <div className="flex flex-col border-b border-[#30363D]/60">
             <div className="p-4 font-extrabold text-[10px] uppercase tracking-widest text-[#8B949E] opacity-50 font-mono">
               Active Workspace
@@ -2350,7 +2608,7 @@ export default function App() {
           <div className="p-4 border-t border-[#30363D]/60 bg-[#0D1117] flex justify-between items-center text-[10px] font-mono text-[#8B949E]">
             <div className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-[#58A6FF]"></span>
-              <span>RKix OS Shell</span>
+              <span>TerKix OS Shell</span>
             </div>
             <span>v1.0.4</span>
           </div>
@@ -2358,7 +2616,7 @@ export default function App() {
       )}
 
       {/* Main Execution View Area */}
-      <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden bg-black select-text relative">
+      <main className="terkix-main-shell flex-1 flex flex-col h-screen max-h-screen overflow-hidden bg-black select-text relative">
         
         {/* Clean, high-end professional Top Status Control Bar */}
         <div className="h-9 border-b border-[#21262d] bg-[#0d1017] flex justify-between items-center text-[10.5px] text-[#8b949e] select-none shrink-0 shadow-sm animate-fade-in pr-3">
@@ -2554,6 +2812,8 @@ export default function App() {
           <div className="flex-1 flex justify-between items-center pl-3">
             {/* Left: Session and Active Node Status */}
             <div className="flex items-center gap-2">
+              <img src="/terkix-logo.svg" alt="TerKix" className="h-6 w-6 rounded-md border border-[#30363D] bg-black/60" />
+              <span className="hidden md:inline text-[10px] font-black tracking-widest text-white uppercase">TerKix</span>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3FB950] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#3FB950]"></span>
@@ -2575,8 +2835,12 @@ export default function App() {
 
             {/* Right: Telemetry sync and utility controls */}
             <div className="flex items-center gap-2.5 font-mono text-[10px]">
-              <span className="hidden sm:inline px-1 py-0.5 rounded bg-[#238636]/10 text-[#3FB950] border border-[#238636]/20 font-bold text-[9px] uppercase">
-                Synced
+              <span className={`hidden sm:inline px-1 py-0.5 rounded border font-bold text-[9px] uppercase ${
+                isOnline
+                  ? "bg-[#238636]/10 text-[#3FB950] border-[#238636]/20"
+                  : "bg-[#D29922]/10 text-[#D29922] border-[#D29922]/20"
+              }`}>
+                {isOnline ? "Online" : "Offline"}
               </span>
               <span className="text-gray-500">
                 UTC: {new Date().toISOString().substring(11, 19)}
@@ -2590,9 +2854,124 @@ export default function App() {
           
           {/* TERMINAL TAB VIEW - ALWAYS ACTIVE BACKGROUND TERMUX */}
           <div className="flex-1 flex flex-col min-h-0" id="terminal-section-layout">
+              <section className="terkix-command-deck border-b border-[#21262d] bg-[#05070b]/95 px-2 py-2 sm:px-3 sm:py-3 font-mono shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+                <div className="mb-2 sm:mb-3 grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-[1.4fr_1fr]">
+                  <div className="rounded-xl sm:rounded-2xl border border-[#30363D] bg-[linear-gradient(135deg,rgba(13,17,23,0.96),rgba(3,5,8,0.94))] p-2.5 sm:p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div className="flex items-start gap-2.5 sm:gap-3">
+                      <img src="/terkix-logo.svg" alt="TerKix command deck" className="h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl border border-[#30363D] bg-black/60 shadow-[0_0_24px_rgba(63,185,80,0.18)]" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[8px] sm:text-[9px] uppercase tracking-[0.14em] sm:tracking-[0.18em]">
+                          <span className="rounded-full border border-[#3FB950]/25 bg-[#3FB950]/10 px-2 py-0.5 font-black text-[#3FB950]">TerKix Flow</span>
+                          <span className="rounded-full border border-[#58A6FF]/25 bg-[#58A6FF]/10 px-2 py-0.5 font-bold text-[#58A6FF]">Mobile Termux UX</span>
+                        </div>
+                        <h2 className="mt-1.5 sm:mt-2 truncate text-[12px] sm:text-base font-black tracking-tight text-white md:text-lg">Command Center cho ứng dụng Termux riêng của bạn</h2>
+                        <p className="mt-1 hidden text-[10px] leading-relaxed text-[#8B949E] sm:block sm:text-[11px]">
+                          Một luồng rõ ràng từ prompt → agent → workspace → deploy, tối ưu cho mobile, bàn phím ảo và terminal tối màu.
+                        </p>
+                        <div className="mt-2 hidden flex-wrap gap-1.5 text-[9px] uppercase tracking-wider sm:flex">
+                          {TERKIX_APP_CAPABILITIES.map((capability) => (
+                            <span key={capability} className="rounded-full border border-[#30363D] bg-black/35 px-2 py-0.5 text-[#C9D1D9]">
+                              {capability}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-1.5 sm:gap-2 text-[8px] sm:text-[10px]">
+                    <div className="rounded-xl sm:rounded-2xl border border-[#3FB950]/20 bg-[#3FB950]/8 p-2 sm:p-3">
+                      <div className="text-[#8B949E]">CPU</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#3FB950]">{latestTelemetry.cpu.toFixed(2)}%</div>
+                    </div>
+                    <div className="rounded-xl sm:rounded-2xl border border-[#58A6FF]/20 bg-[#58A6FF]/8 p-2 sm:p-3">
+                      <div className="text-[#8B949E]">AGENTS</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#58A6FF]">{activeAgentCount}/6</div>
+                    </div>
+                    <div className="rounded-xl sm:rounded-2xl border border-[#BC8CFF]/20 bg-[#BC8CFF]/8 p-2 sm:p-3">
+                      <div className="text-[#8B949E]">LIVE</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#BC8CFF]">{liveDeploymentsCount}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleInstallApp}
+                      className="rounded-xl sm:rounded-2xl border border-[#D29922]/25 bg-[#D29922]/8 p-2 sm:p-3 text-left transition hover:border-[#D29922]/60 hover:bg-[#D29922]/15"
+                    >
+                      <div className="text-[#8B949E]">APP</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#D29922]">
+                        {pwaInstallState === "installed" ? "ON" : pwaInstallState === "available" ? "GET" : "PWA"}
+                      </div>
+                    </button>
+                    <div className="rounded-xl sm:rounded-2xl border border-[#30363D] bg-[#0D1117]/80 p-2 sm:p-3">
+                      <div className="text-[#8B949E]">HISTORY</div>
+                      <div className="mt-0.5 sm:mt-1 text-sm sm:text-lg font-black text-[#C9D1D9]">{commandHistory.length}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-4 text-[8.5px] sm:text-[10px]">
+                  {TERKIX_FLOW_STEPS.map((step) => (
+                    <div key={step.label} className={`group rounded-lg sm:rounded-xl border px-2 py-1.5 sm:px-3 sm:py-2 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${step.color}`}>
+                      <div className="font-black tracking-widest">{step.label}</div>
+                      <div className="mt-1 text-[#E6EDF3] normal-case tracking-normal">{step.text}</div>
+                      <div className="mt-1 hidden text-[9px] text-[#8B949E] normal-case tracking-normal sm:block">{step.detail}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2 sm:mt-3 flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 text-[9px] sm:text-[10px] terkix-command-actions">
+                  <button
+                    type="button"
+                    onClick={handleInstallApp}
+                    className="shrink-0 rounded-full border border-[#D29922]/40 bg-[#D29922]/10 px-3 py-1.5 font-black text-[#D29922] transition hover:bg-[#D29922]/20"
+                  >
+                    ⬇ Cài TerKix
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportWorkspaceSnapshot}
+                    className="shrink-0 rounded-full border border-[#58A6FF]/40 bg-[#58A6FF]/10 px-3 py-1.5 font-black text-[#58A6FF] transition hover:bg-[#58A6FF]/20"
+                  >
+                    ⇩ Export snapshot
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetUiPreferences}
+                    className="shrink-0 rounded-full border border-[#30363D] bg-black/45 px-3 py-1.5 font-bold text-[#8B949E] transition hover:border-[#C9D1D9]/50 hover:text-[#C9D1D9]"
+                  >
+                    Reset UI
+                  </button>
+                  {TERKIX_QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={() => setCommandText(action.command)}
+                      className="shrink-0 rounded-full border border-[#30363D] bg-[#0D1117]/90 px-3 py-1.5 font-bold text-[#C9D1D9] transition hover:border-[#3FB950]/60 hover:text-[#3FB950]"
+                    >
+                      + {action.label}
+                    </button>
+                  ))}
+                </div>
+
+                {commandHistory.length > 0 && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1 text-[10px]">
+                    <span className="shrink-0 py-1.5 text-[#8B949E]">History:</span>
+                    {commandHistory.slice(0, 5).map((command) => (
+                      <button
+                        key={command}
+                        type="button"
+                        onClick={() => setCommandText(command)}
+                        className="max-w-[260px] shrink-0 truncate rounded-full border border-[#30363D] bg-black/45 px-3 py-1.5 text-left font-mono text-[#8B949E] transition hover:border-[#58A6FF]/60 hover:text-[#58A6FF]"
+                      >
+                        $ {command}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
               
               {/* Actual Terminal Window */}
-              <div className="flex-1 bg-black flex flex-col relative">
+              <div className="terkix-terminal-glass flex-1 bg-black flex flex-col relative">
 
                 {/* Standard Console Log Viewport with dynamic font scales & retro phosphor theme states */}
                 <div 
@@ -2606,8 +2985,8 @@ export default function App() {
                       terminalScrollRef.current = true;
                     }
                   }}
-                  className={`flex-1 p-5 font-mono overflow-y-auto space-y-3.5 select-text ${
-                    consoleFontSize === "sm" ? "text-[10.5px]" : consoleFontSize === "lg" ? "text-[14.5px]" : "text-[12.5px]"
+                  className={`flex-1 p-3 sm:p-5 font-mono overflow-y-auto space-y-2 sm:space-y-3.5 select-text ${
+                    consoleFontSize === "sm" ? "text-[9.5px] sm:text-[10.5px]" : consoleFontSize === "lg" ? "text-[12px] sm:text-[14.5px]" : "text-[10.5px] sm:text-[12.5px]"
                   }`}
                 >
                     
@@ -2634,7 +3013,7 @@ export default function App() {
                     {terminalLines.map((line) => {
                       if (line.type === "input") {
                         const targetPrompt = 
-                          themeColor === "green" ? "developer@rkix:~$ " : 
+                          themeColor === "green" ? "developer@terkix:~$ " : 
                           themeColor === "amber" ? "oracle@amber:~$ " : 
                           themeColor === "cyan" ? "sys@cyan:~$ " : 
                           "matrix@violet:~$ ";
@@ -2681,7 +3060,7 @@ export default function App() {
                       }
                       if (line.type === "warning") {
                         return (
-                          <div key={line.id} className="text-[#D29922] font-medium bg-[#D29922]/5 p-2.5 rounded border border-[#D29922]/20 leading-relaxed font-sans flex gap-2">
+                          <div key={line.id} className="text-[#D29922] font-medium bg-[#D29922]/5 p-2 sm:p-2.5 rounded border border-[#D29922]/20 leading-relaxed font-sans flex gap-2">
                             <AlertTriangle size={15} className="shrink-0 mt-0.5 text-[#D29922]" />
                             <span>{line.text}</span>
                           </div>
@@ -2710,7 +3089,7 @@ export default function App() {
 
                     {/* Typing stream thinking indicators */}
                     {isProcessing && (
-                      <div className="flex gap-2.5 items-center text-[#58A6FF] font-bold py-1">
+                      <div className="flex gap-2 items-center text-[#58A6FF] font-bold py-0.5 sm:py-1">
                         <span className="animate-pulse bg-[#58A6FF]/20 px-2 py-0.5 rounded text-[10px]">AI RUNNING</span>
                         <div className="flex items-center gap-1">
                           <span className="w-1.5 h-1.5 bg-[#58A6FF] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -2724,14 +3103,14 @@ export default function App() {
                   </div>
 
                   {/* Authentic Termux Virtual Keyboard bar accessory panel */}
-                <div className="flex items-center justify-between border-t border-[#13171e] bg-[#070a0e] px-3 py-1.5 gap-1.5 select-none overflow-x-auto shrink-0" id="termux-virtual-keyboard">
+                <div className="terkix-keyboard-dock flex items-center justify-between border-t border-[#13171e] bg-[#070a0e] px-2 sm:px-3 py-1 sm:py-1.5 gap-1 select-none overflow-x-auto shrink-0" id="termux-virtual-keyboard">
                   <div className="flex gap-1">
-                    {["ESC", "TAB", "CTRL", "ALT", "-", "+", "CLEAR"].map(k => (
+                    {["ESC", "TAB", "CTRL", "ALT", "↑", "↓", "-", "+", "CLEAR"].map(k => (
                       <button
                         key={k}
                         type="button"
                         onClick={() => handleTermKeyAction(k)}
-                        className="px-2.5 py-1 font-mono text-[10px] font-bold bg-[#141921] border border-[#2a303b] text-slate-300 hover:text-white rounded-md cursor-pointer select-none active:bg-neutral-850 hover:border-slate-500 active:scale-95 transition pointer-events-auto"
+                        className="px-2 sm:px-2.5 py-0.5 sm:py-1 font-mono text-[8.5px] sm:text-[10px] font-bold bg-[#141921] border border-[#2a303b] text-slate-300 hover:text-white rounded-md cursor-pointer select-none active:bg-neutral-850 hover:border-slate-500 active:scale-95 transition pointer-events-auto"
                       >
                         {k}
                       </button>
@@ -2743,7 +3122,7 @@ export default function App() {
                         key={k}
                         type="button"
                         onClick={() => handleTermKeyAction(k)}
-                        className="px-2 py-1 font-mono text-[9px] font-bold bg-[#141921] border border-[#2a303b] text-gray-400 rounded-md cursor-pointer hover:text-white select-none active:scale-95 transition pointer-events-auto"
+                        className="px-1.5 sm:px-2 py-0.5 sm:py-1 font-mono text-[8px] sm:text-[9px] font-bold bg-[#141921] border border-[#2a303b] text-gray-400 rounded-md cursor-pointer hover:text-white select-none active:scale-95 transition pointer-events-auto"
                       >
                         {k}
                       </button>
@@ -2754,16 +3133,28 @@ export default function App() {
                 {/* Fully Integrated Termux Command Console Input field of Termux */}
                 <form
                   onSubmit={handleCommandSubmit}
-                  className="h-11 border-t border-[#1b212c] px-3.5 flex items-center gap-2.5 bg-[#02050a] shrink-0 focus-within:bg-[#03070f] focus-within:border-[#3FB950]/55 transition-all duration-150"
+                  className="terkix-input-dock h-10 sm:h-12 border-t border-[#1b212c] px-2.5 sm:px-3.5 flex items-center gap-1.5 sm:gap-2.5 bg-[#02050a]/95 shrink-0 focus-within:bg-[#03070f] focus-within:border-[#3FB950]/55 transition-all duration-150 shadow-[0_-18px_40px_rgba(0,0,0,0.38)]"
                 >
-                  <span className="text-emerald-400 font-extrabold font-mono text-[12.5px] select-none tracking-tight animate-pulse">~ $</span>
+                  <span className="text-emerald-400 font-extrabold font-mono text-[10px] sm:text-[12.5px] select-none tracking-tight animate-pulse">~ $</span>
                   <input
                     type="text"
                     value={commandText}
-                    onChange={(e) => setCommandText(e.target.value)}
+                    onChange={(e) => {
+                      setCommandText(e.target.value);
+                      setHistoryCursor(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        recallCommandHistory("previous");
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        recallCommandHistory("next");
+                      }
+                    }}
                     disabled={isProcessing}
-                    placeholder="Nhập lệnh hoặc yêu cầu tự động chỉnh sửa ứng dụng..."
-                    className="bg-transparent border-none outline-none flex-1 font-mono text-[11.5px] md:text-[12px] font-bold text-white placeholder-gray-600 focus:ring-0 select-text leading-relaxed tracking-wide"
+                    placeholder="Nhập lệnh TerKix hoặc mô tả app muốn tạo/tối ưu..."
+                    className="bg-transparent border-none outline-none flex-1 font-mono text-[10px] sm:text-[11.5px] md:text-[12px] font-bold text-white placeholder-gray-600 focus:ring-0 select-text leading-relaxed tracking-wide min-w-0"
                     autoFocus
                   />
                   
@@ -2778,7 +3169,7 @@ export default function App() {
                         setDetailedReasoningText("");
                       }
                     }}
-                    className={`px-2.5 py-1 text-[11px] font-sans font-bold rounded border transition flex items-center gap-1 cursor-pointer select-none pointer-events-auto ${
+                    className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-sans font-bold rounded border transition flex items-center gap-1 cursor-pointer select-none pointer-events-auto ${
                       thinkingMode 
                         ? "bg-violet-950/40 border-violet-500 text-violet-300 shadow font-extrabold animate-pulse" 
                         : "bg-[#0b1017] border-[#202730] text-gray-400 hover:text-white"
@@ -2792,7 +3183,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={isProcessing}
-                    className="p-1 px-3 text-[#0D1117] font-bold text-xs font-sans rounded bg-[#3FB950] hover:bg-green-500 transition flex items-center gap-1 cursor-pointer shrink-0 pointer-events-auto"
+                    className="p-1.5 px-3 sm:px-4 text-[#0D1117] font-black text-[10px] sm:text-xs font-sans rounded-lg bg-[#3FB950] hover:bg-green-400 transition flex items-center gap-1.5 cursor-pointer shrink-0 pointer-events-auto shadow-[0_0_18px_rgba(63,185,80,0.28)] disabled:opacity-50"
                   >
                     <span>run</span>
                     <Send size={10} />
